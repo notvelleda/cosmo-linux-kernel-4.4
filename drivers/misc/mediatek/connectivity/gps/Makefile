@@ -17,7 +17,8 @@ ifneq ($(KERNEL_OUT),)
 endif
 
 ifeq ($(CONFIG_MTK_COMBO_CHIP),)
-    $(error CONFIG_MTK_COMBO_CHIP not defined)
+    CONFIG_MTK_COMBO_CHIP=CONSYS_6771 # kludge so that make clean works, it's not like this tree will be used for anything other than the mt6771 anyway
+    #$(error CONFIG_MTK_COMBO_CHIP not defined)
 endif
 
 ifeq ($(TARGET_BUILD_VARIANT),$(filter $(TARGET_BUILD_VARIANT),userdebug user))
