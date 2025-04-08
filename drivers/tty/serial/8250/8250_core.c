@@ -127,11 +127,6 @@ static irqreturn_t serial8250_interrupt(int irq, void *dev_id)
 		up = list_entry(l, struct uart_8250_port, list);
 		port = &up->port;
 
-#ifdef CONFIG_MT_PRINTK_UART_CONSOLE
-		if (uart_console(port) && (serial_in(up, UART_LSR) & 0x01))
-			printk_disable_uart = 0;
-#endif
-
 		if (port->handle_irq(port)) {
 			handled = 1;
 			end = NULL;

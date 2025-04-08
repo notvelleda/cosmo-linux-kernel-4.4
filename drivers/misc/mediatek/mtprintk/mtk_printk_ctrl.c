@@ -24,14 +24,12 @@
 /*                     Define Proc entry               */
 /* --------------------------------------------------- */
 MT_DEBUG_ENTRY(printk_ctrl);
-/* always enable uart printk */
-int mt_need_uart_console;
 
 static int mt_printk_ctrl_show(struct seq_file *m, void *v)
 {
 	SEQ_printf(m, "=== mt printk controller ===\n");
-	SEQ_printf(m, "0:   printk uart disable\n");
-	SEQ_printf(m, "1:   printk uart enable\n");
+	SEQ_printf(m, "0:   printk uart disable (not implemented)\n");
+	SEQ_printf(m, "1:   printk uart enable (not implemented)\n");
 	SEQ_printf(m, "2:   printk too much disable\n");
 	SEQ_printf(m, "3:   printk too much enable\n");
 	SEQ_printf(m, "xxx: printk too much detect count(xxx represents for a integer > 100)\n");
@@ -63,13 +61,9 @@ static ssize_t mt_printk_ctrl_write(struct file *filp, const char *ubuf, size_t 
 		return ret;
 
 	switch (val) {
-	case 0:
-		mt_need_uart_console = 0;
-		mt_disable_uart();
-		break;
-	case 1:
-		mt_need_uart_console = 1;
-		mt_enable_uart();
+	case 0: /* disable uart */
+	case 1: /* enable uart */
+		/* do nothing, this functionality has been removed due to being absolutely fucking atrocious */
 		break;
 	case 2:
 		set_logtoomuch_enable(0);

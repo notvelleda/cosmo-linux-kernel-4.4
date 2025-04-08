@@ -107,10 +107,6 @@ struct aee_user_thread_maps {
 	unsigned char *Userthread_maps; /*8k stack ,define to char only for match 64bit/32bit*/
 };
 
-#ifdef CONFIG_MTK_PRINTK_UART_CONSOLE
-extern int printk_disable_uart;
-#endif
-
 #ifdef CONFIG_MTK_RAM_CONSOLE
 extern void aee_rr_rec_hang_detect_timeout_count(unsigned int);
 #endif

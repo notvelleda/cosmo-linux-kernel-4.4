@@ -1558,14 +1558,6 @@ int serial8250_handle_irq(struct uart_port *port, unsigned int iir)
 	spin_lock_irqsave(&port->lock, flags);
 
 	status = serial_port_in(port, UART_LSR);
-#ifndef CONFIG_FIQ_DEBUGGER
-#ifdef CONFIG_MTK_ENG_BUILD
-#ifdef CONFIG_MTK_PRINTK_UART_CONSOLE
-	if (uart_console(port) && (serial_port_in(port, UART_LSR) & 0x01))
-		printk_disable_uart = 0;
-#endif
-#endif
-#endif
 
 
 	if (status & (UART_LSR_DR | UART_LSR_BI)) {
