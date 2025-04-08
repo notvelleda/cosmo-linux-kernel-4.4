@@ -851,15 +851,6 @@ static int mtkfb_set_par(struct fb_info *fbi)
 	return 0;
 }
 
-
-static int mtkfb_soft_cursor(struct fb_info *info, struct fb_cursor *cursor)
-{
-	/* NOT_REFERENCED(info); */
-	/* NOT_REFERENCED(cursor); */
-
-	return 0;
-}
-
 static int mtkfb_get_overlay_layer_info(struct fb_overlay_layer_info *layerInfo)
 {
 #if 0
@@ -1655,7 +1646,6 @@ static struct fb_ops mtkfb_ops = {
 	.fb_fillrect = cfb_fillrect,
 	.fb_copyarea = cfb_copyarea,
 	.fb_imageblit = cfb_imageblit,
-	.fb_cursor = mtkfb_soft_cursor,
 	.fb_check_var = mtkfb_check_var,
 	.fb_set_par = mtkfb_set_par,
 	.fb_ioctl = mtkfb_ioctl,
