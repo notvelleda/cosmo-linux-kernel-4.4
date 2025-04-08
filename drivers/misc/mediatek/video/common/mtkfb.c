@@ -243,49 +243,32 @@ static int mtkfb_release(struct fb_info *info, int user)
 	return 0;
 }
 
-/* Store a single color palette entry into a pseudo palette or the hardware
- * palette if one is available. For now we support only 16bpp and thus store
- * the entry only to the pseudo palette.
- */
-static int mtkfb_setcolreg(u_int regno, u_int red, u_int green,
-			   u_int blue, u_int transp, struct fb_info *info)
+#define PSEUDO_PALETTE_SIZE 16
+
+/* This function is just a copy of simplefb_setcolreg since MediaTek's implementation doesn't work at all (which isn't at all surprising given the code quality) */
+static int mtkfb_setcolreg(u_int regno, u_int red, u_int green, u_int blue,
+			      u_int transp, struct fb_info *info)
 {
-	int r = 0;
-	unsigned bpp, m;
+	u32 *pal = info->pseudo_palette;
+	u32 cr = red >> (16 - info->var.red.length);
+	u32 cg = green >> (16 - info->var.green.length);
+	u32 cb = blue >> (16 - info->var.blue.length);
+	u32 value;
 
-	/* NOT_REFERENCED(transp); */
+	if (regno >= PSEUDO_PALETTE_SIZE)
+		return -EINVAL;
 
-	MSG_FUNC_ENTER();
-
-	bpp = info->var.bits_per_pixel;
-	m = 1 << bpp;
-	if (regno >= m) {
-		r = -EINVAL;
-		goto exit;
+	value = (cr << info->var.red.offset) |
+		(cg << info->var.green.offset) |
+		(cb << info->var.blue.offset);
+	if (info->var.transp.length > 0) {
+		u32 mask = (1 << info->var.transp.length) - 1;
+		mask <<= info->var.transp.offset;
+		value |= mask;
 	}
+	pal[regno] = value;
 
-	switch (bpp) {
-	case 16:
-		/* RGB 565 */
-		((u32 *) (info->pseudo_palette))[regno] =
-		    ((red & 0xF800) | ((green & 0xFC00) >> 5) | ((blue & 0xF800) >> 11));
-		break;
-	case 32:
-		/* ARGB8888 */
-		((u32 *) (info->pseudo_palette))[regno] =
-		    (0xff000000) |
-		    ((red & 0xFF00) << 8) | ((green & 0xFF00)) | ((blue & 0xFF00) >> 8);
-		break;
-
-		/* TODO: RGB888, BGR888, ABGR8888 */
-
-	default:
-		ASSERT(0);
-	}
-
-exit:
-	MSG_FUNC_LEAVE();
-	return r;
+	return 0;
 }
 
 int mtkfb_set_backlight_level(unsigned int level)
