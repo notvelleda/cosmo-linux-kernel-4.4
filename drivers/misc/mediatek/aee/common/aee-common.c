@@ -359,6 +359,18 @@ void aee_sram_printk(const char *fmt, ...)
 }
 EXPORT_SYMBOL(aee_sram_printk);
 
+static void wait_before_reset(void)
+{
+	int i;
+
+	for (i = 10; i > 0; i --) {
+		printk("\rRebooting in %02ds...", i);
+		mdelay(1000);
+	}
+
+	printk("\rRebooting in 00s...\n");
+}
+
 /* no export symbol to aee_exception_reboot, only used in exception flow */
 void aee_exception_reboot(void)
 {
@@ -368,6 +380,8 @@ void aee_exception_reboot(void)
 
 	/* config reset mode */
 	int mode = WD_SW_RESET_BYPASS_PWR_KEY;
+
+	wait_before_reset();
 
 	res = get_wd_api(&wd_api);
 	if (res < 0) {
@@ -380,6 +394,7 @@ void aee_exception_reboot(void)
 		wd_api->wd_sw_reset(mode);
 	}
 #else
+	wait_before_reset();
 	emergency_restart();
 #endif
 }

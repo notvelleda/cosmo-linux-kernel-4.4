@@ -240,6 +240,7 @@ static void show_extra_register_data(struct pt_regs *regs, int nbytes)
 
 void __show_regs(struct pt_regs *regs)
 {
+#if 0 /* too loud, don't need this information and it just makes kernel panics way harder to sift through */
 	int i, top_reg;
 	u64 lr, sp;
 
@@ -267,6 +268,7 @@ void __show_regs(struct pt_regs *regs)
 	if (!user_mode(regs))
 		show_extra_register_data(regs, 128);
 	printk("\n");
+#endif
 }
 
 void show_regs(struct pt_regs * regs)

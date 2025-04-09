@@ -459,7 +459,7 @@ void wdt_arch_reset(char mode)
 	__inner_flush_dcache_all();
 
 	/* dump RGU registers (before SW reset) */
-	wdt_dump_reg();
+	/* wdt_dump_reg(); */
 
 	pr_info("%s: sw reset happen!\n", __func__);
 
