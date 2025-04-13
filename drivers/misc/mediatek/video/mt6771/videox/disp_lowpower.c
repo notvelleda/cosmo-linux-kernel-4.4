@@ -123,8 +123,9 @@ static struct disp_idlemgr_context *_get_idlemgr_context(void)
 	if (!is_inited) {
 		init_waitqueue_head(&(g_idlemgr_context.idlemgr_wait_queue));
 		g_idlemgr_context.session_mode_before_enter_idle = DISP_INVALID_SESSION_MODE;
-		g_idlemgr_context.is_primary_idle = 1; /* this variable is inverted for some reason (bad design decisions like this are of course par for the course with mediatek),
-		                                        * so it's set to start as not idle to keep the idle manager thread from freezing the console once it kicks in
+		g_idlemgr_context.is_primary_idle = 0; /* this variable is inverted for some reason (bad design decisions like this are of course par for the course with mediatek),
+		                                        * however setting it to 1 to start as not idle to keep the idle manager thread from freezing the console once it kicks in
+												* somehow prevents X from starting
 												*/
 		g_idlemgr_context.enterulps = 0;
 		g_idlemgr_context.idlemgr_last_kick_time = ~(0ULL);
@@ -133,7 +134,7 @@ static struct disp_idlemgr_context *_get_idlemgr_context(void)
 			= kthread_create(_primary_path_idlemgr_monitor_thread, NULL, "disp_idlemgr");
 #if (CONFIG_MTK_DUAL_DISPLAY_SUPPORT == 2)
 		init_waitqueue_head(&(g_idlemgr_context.ext_idlemgr_wait_queue));
-		g_idlemgr_context.is_external_idle = 1;
+		g_idlemgr_context.is_external_idle = 0;
 		g_idlemgr_context.ext_idlemgr_last_kick_time = ~(0ULL);
 		g_idlemgr_context.external_display_idlemgr_task
 			= kthread_create(_external_path_idlemgr_monitor_thread, NULL, "ext_disp_idlemgr");

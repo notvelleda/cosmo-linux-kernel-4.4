@@ -41,6 +41,9 @@
 /* #include <mach/irqs.h> */
 #include <linux/dma-mapping.h>
 #include <linux/compat.h>
+#include <linux/vt_kern.h>
+#include <linux/console_struct.h>
+#include <linux/kd.h>
 #include "mt-plat/aee.h"
 
 #include "mt-plat/mtk_boot.h"
@@ -76,6 +79,7 @@
 #endif
 #include <mt-plat/mtk_ccci_common.h>
 #include "ddp_dsi.h"
+#include "disp_lowpower.h"
 
 /* static variable */
 static u32 MTK_FB_XRES;
@@ -1932,6 +1936,19 @@ static int mtkfb_pan_display_proxy(struct fb_var_screeninfo *var, struct fb_info
 	return mtkfb_pan_display_impl(var, info);
 }
 
+extern int soft_cursor(struct fb_info *info, struct fb_cursor *cursor);
+
+static int mtkfb_cursor(struct fb_info *info, struct fb_cursor *cursor) {
+	/* this is a very hacky workaround to keep the display from freezing while the cursor is visible and flashing.
+	 * it's not ideal in the slightest since if the cursor is the only thing onscreen that's being updated
+	 * then the display really should just stay in idle mode, but this seems to work well enough for now.
+	 *
+	 * TODO: detect if the gpu is being used and skip the idle manager kick here if so */
+	//printk(KERN_DEBUG "mtkfb_cursor called!\n");
+	primary_display_idlemgr_kick(__func__, 1);
+	return soft_cursor(info, cursor); /* this is what would be called if mtkfb_ops.fb_cursor was set to null */
+}
+
 /* Callback table for the frame buffer framework. Some of these pointers
  * will be changed according to the current setting of fb_info->accel_flags.
  */
@@ -1947,6 +1964,7 @@ static struct fb_ops mtkfb_ops = {
 	.fb_check_var = mtkfb_check_var,
 	.fb_set_par = mtkfb_set_par,
 	.fb_ioctl = mtkfb_ioctl,
+	.fb_cursor = mtkfb_cursor,
 #ifdef CONFIG_COMPAT
 	.fb_compat_ioctl = mtkfb_compat_ioctl,
 #endif
@@ -3037,6 +3055,19 @@ int mtkfb_get_debug_state(char *stringbuf, int buf_len)
 	return len;
 }
 
+/* this isn't the best place for something like this, however it works just fine and i'm not sure where the best place to put this would be */
+static int vt_notifier_call(struct notifier_block *, unsigned long code, void *param) {
+	/* since the display can't be kept active by setting g_idlemgr_context.is_primary_idle to 1 in disp_lowpower.c,
+	 * we instead have to yell at the display idle manager every time the currently active console is updated to
+	 * make those changes actually visible onscreen
+	 */
+	primary_display_idlemgr_kick(__func__, 1);
+	return NOTIFY_OK;
+}
+
+static struct notifier_block vt_notifier_block = {
+	.notifier_call = vt_notifier_call,
+};
 
 /* Register both the driver and the device */
 int __init mtkfb_init(void)
@@ -3056,6 +3087,7 @@ int __init mtkfb_init(void)
 	PanelMaster_Init();
 	DBG_Init();
 	mtkfb_ipo_init();
+	register_vt_notifier(&vt_notifier_block);
 exit:
 	MSG_FUNC_LEAVE();
 	DISPCHECK("mtkfb_init LEAVE\n");
@@ -3067,6 +3099,7 @@ static void __exit mtkfb_cleanup(void)
 {
 	MSG_FUNC_ENTER();
 
+	unregister_vt_notifier(&vt_notifier_block);
 	platform_driver_unregister(&mtkfb_driver);
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
