@@ -342,7 +342,8 @@ static struct ctl_table kern_table[] = {
 		.data		= &sysctl_sched_walt_init_task_load_pct,
 		.maxlen		= sizeof(unsigned int),
 		.mode		= 0644,
-		.proc_handler	= proc_dointvec,
+		.proc_handler	= proc_dointvec_minmax,
+		.extra1		= &one,
 	},
 	{
 		.procname	= "sched_walt_cpu_high_irqload",

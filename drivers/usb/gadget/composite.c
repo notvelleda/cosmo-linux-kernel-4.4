@@ -1676,6 +1676,8 @@ composite_setup(struct usb_gadget *gadget, const struct usb_ctrlrequest *ctrl)
 		 */
 		if (w_value && !f->get_alt)
 			break;
+
+		spin_lock(&cdev->lock);
 		value = f->set_alt(f, w_index, w_value);
 		if (value == USB_GADGET_DELAYED_STATUS) {
 			DBG(cdev,
@@ -1778,6 +1780,7 @@ composite_setup(struct usb_gadget *gadget, const struct usb_ctrlrequest *ctrl)
 			}
 			break;
 		}
+		spin_unlock(&cdev->lock);
 		break;
 	case USB_REQ_SET_SEL:
 		INFO(cdev, "[COM]USB_REQ_SET_SEL Pretend success\n");
