@@ -210,4 +210,15 @@ static inline unsigned long mask_fcr31_x(unsigned long fcr31)
 			 (ffs(FPU_CSR_ALL_X) - ffs(FPU_CSR_ALL_E))));
 }
 
+/*
+ * Mask the FCSR Cause bits according to the Enable bits, observing
+ * that Unimplemented is always enabled.
+ */
+static inline unsigned long mask_fcr31_x(unsigned long fcr31)
+{
+	return fcr31 & (FPU_CSR_UNI_X |
+			((fcr31 & FPU_CSR_ALL_E) <<
+			 (ffs(FPU_CSR_ALL_X) - ffs(FPU_CSR_ALL_E))));
+}
+
 #endif /* _ASM_FPU_EMULATOR_H */

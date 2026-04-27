@@ -21,6 +21,16 @@ else ifneq ($(call cc-option, -mstack-alignment=16),)
       cc_stack_align8 := -mstack-alignment=8
 endif
 
+# For gcc stack alignment is specified with -mpreferred-stack-boundary,
+# clang has the option -mstack-alignment for that purpose.
+ifneq ($(call cc-option, -mpreferred-stack-boundary=4),)
+      cc_stack_align4 := -mpreferred-stack-boundary=2
+      cc_stack_align8 := -mpreferred-stack-boundary=3
+else ifneq ($(call cc-option, -mstack-alignment=16),)
+      cc_stack_align4 := -mstack-alignment=4
+      cc_stack_align8 := -mstack-alignment=8
+endif
+
 # How to compile the 16-bit code.  Note we always compile for -march=i386;
 # that way we can complain to the user if the CPU is insufficient.
 #
