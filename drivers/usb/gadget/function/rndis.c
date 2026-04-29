@@ -803,6 +803,12 @@ static int rndis_init_response(struct rndis_params *params,
 {
 	rndis_init_cmplt_type *resp;
 	rndis_resp_t *r;
+	u8 *xbuf;
+	u32 length;
+
+	/* drain the response queue */
+	while ((xbuf = rndis_get_next_response(params, &length)))
+		rndis_free_response(params, xbuf);
 
 	if (!params->dev)
 		return -ENOTSUPP;

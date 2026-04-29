@@ -3196,6 +3196,7 @@ static int ext4_split_extent_at(handle_t *handle,
 	struct ext4_extent *ex2 = NULL;
 	unsigned int ee_len, depth;
 	int err = 0;
+	size_t ext_size = 0;
 
 	BUG_ON((split_flag & (EXT4_EXT_DATA_VALID1 | EXT4_EXT_DATA_VALID2)) ==
 	       (EXT4_EXT_DATA_VALID1 | EXT4_EXT_DATA_VALID2));
@@ -3738,6 +3739,7 @@ static int ext4_convert_unwritten_extents_endio(handle_t *handle,
 	unsigned int ee_len;
 	int depth;
 	int err = 0;
+	size_t ext_size = 0;
 
 	depth = ext_depth(inode);
 	ex = path[depth].p_ext;

@@ -1223,6 +1223,8 @@ static struct cgroup *cset_cgroup_from_root(struct css_set *cset,
 static struct cgroup *task_cgroup_from_root(struct task_struct *task,
 					    struct cgroup_root *root)
 {
+	unsigned long flags;
+
 	/*
 	 * No need to lock the task - since we hold cgroup_mutex the
 	 * task can't change groups, so the only thing that can happen
