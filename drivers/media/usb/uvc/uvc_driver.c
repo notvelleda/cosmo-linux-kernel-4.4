@@ -1507,8 +1507,8 @@ static int uvc_scan_chain_backward(struct uvc_video_chain *chain,
 			}
 
 			if (term->chain.next || term->chain.prev) {
-				uvc_trace(UVC_TRACE_DESCR,
-					"Found ref to entity %d already in.\n",
+				uvc_trace(UVC_TRACE_DESCR, "Found reference to "
+					"entity %d already in chain.\n",
 					term->id);
 				return -EINVAL;
 			}
@@ -1599,6 +1599,11 @@ static unsigned int uvc_print_terms(struct list_head *terms, u16 dir,
 		if (!UVC_ENTITY_IS_TERM(term) ||
 		    UVC_TERM_DIRECTION(term) != dir)
 			continue;
+		if (forward->chain.next || forward->chain.prev) {
+			uvc_trace(UVC_TRACE_DESCR, "Found reference to "
+				"entity %d already in chain.\n", forward->id);
+			return -EINVAL;
+		}
 
 		if (nterms)
 			p += sprintf(p, ",");
