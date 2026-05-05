@@ -2312,6 +2312,7 @@ static void addrconf_add_mroute(struct net_device *dev)
 		.fc_dst_len = 8,
 		.fc_flags = RTF_UP,
 		.fc_nlinfo.nl_net = dev_net(dev),
+		.fc_protocol = RTPROT_KERNEL,
 	};
 	/*MTK_PATCH For Fix ALPS02811266*/
 	if (strncmp(dev->name, "wlan0", 4) == 0)
