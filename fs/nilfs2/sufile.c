@@ -524,7 +524,7 @@ int nilfs_sufile_mark_dirty(struct inode *sufile, __u64 segnum)
 		kunmap_atomic(kaddr);
 		brelse(bh);
 		if (nilfs_segment_is_active(nilfs, segnum)) {
-			nilfs_error(sufile->i_sb,
+			nilfs_error(sufile->i_sb, __func__,
 				    "active segment %llu is erroneous",
 				    (unsigned long long)segnum);
 		} else {
@@ -1103,6 +1103,9 @@ int nilfs_sufile_trim_fs(struct inode *sufile, struct fstrim_range *range)
 	else
 		end_block = start_block + len - 1;
 
+	if (end_block < nilfs->ns_first_data_block)
+		goto out;
+
 	segnum = nilfs_get_segnum_of_block(nilfs, start_block);
 	segnum_end = nilfs_get_segnum_of_block(nilfs, end_block);
 
@@ -1200,6 +1203,7 @@ int nilfs_sufile_trim_fs(struct inode *sufile, struct fstrim_range *range)
 out_sem:
 	up_read(&NILFS_MDT(sufile)->mi_sem);
 
+out:
 	range->len = ndiscarded << nilfs->ns_blocksize_bits;
 	return ret;
 }

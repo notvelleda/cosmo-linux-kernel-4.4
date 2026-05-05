@@ -100,9 +100,17 @@ static void copy_fdtable(struct fdtable *nfdt, struct fdtable *ofdt)
 	copy_fd_bitmaps(nfdt, ofdt, ofdt->max_fds);
 }
 
-static struct fdtable * alloc_fdtable(unsigned int nr)
+/*
+ * Note how the fdtable bitmap allocations very much have to be a multiple of
+ * BITS_PER_LONG. This is not only because we walk those things in chunks of
+ * 'unsigned long' in some places, but simply because that is how the Linux
+ * kernel bitmaps are defined to work: they are not "bits in an array of bytes",
+ * they are very much "bits in an array of unsigned long".
+ */
+static struct fdtable *alloc_fdtable(unsigned int slots_wanted)
 {
 	struct fdtable *fdt;
+	unsigned int nr;
 	void *data;
 
 	/*
@@ -110,21 +118,47 @@ static struct fdtable * alloc_fdtable(unsigned int nr)
 	 * Allocation steps are keyed to the size of the fdarray, since it
 	 * grows far faster than any of the other dynamic data. We try to fit
 	 * the fdarray into comfortable page-tuned chunks: starting at 1024B
-	 * and growing in powers of two from there on.
+	 * and growing in powers of two from there on.  Since we called only
+	 * with slots_wanted > BITS_PER_LONG (embedded instance in files->fdtab
+	 * already gives BITS_PER_LONG slots), the above boils down to
+	 * 1.  use the smallest power of two large enough to give us that many
+	 * slots.
+	 * 2.  on 32bit skip 64 and 128 - the minimal capacity we want there is
+	 * 256 slots (i.e. 1Kb fd array).
+	 * 3.  on 64bit don't skip anything, 1Kb fd array means 128 slots there
+	 * and we are never going to be asked for 64 or less.
 	 */
-	nr /= (1024 / sizeof(struct file *));
-	nr = roundup_pow_of_two(nr + 1);
-	nr *= (1024 / sizeof(struct file *));
+	if (IS_ENABLED(CONFIG_32BIT) && slots_wanted < 256)
+		nr = 256;
+	else
+		nr = roundup_pow_of_two(slots_wanted);
 	/*
 	 * Note that this can drive nr *below* what we had passed if sysctl_nr_open
-	 * had been set lower between the check in expand_files() and here.  Deal
-	 * with that in caller, it's cheaper that way.
+	 * had been set lower between the check in expand_files() and here.
 	 *
 	 * We make sure that nr remains a multiple of BITS_PER_LONG - otherwise
 	 * bitmaps handling below becomes unpleasant, to put it mildly...
 	 */
-	if (unlikely(nr > sysctl_nr_open))
-		nr = ((sysctl_nr_open - 1) | (BITS_PER_LONG - 1)) + 1;
+	if (unlikely(nr > sysctl_nr_open)) {
+		nr = round_down(sysctl_nr_open, BITS_PER_LONG);
+		if (nr < slots_wanted)
+			return ERR_PTR(-EMFILE);
+	}
+
+	/*
+	 * Check if the allocation size would exceed INT_MAX. kvmalloc_array()
+	 * and kvmalloc() will warn if the allocation size is greater than
+	 * INT_MAX, as filp_cachep objects are not __GFP_NOWARN.
+	 *
+	 * This can happen when sysctl_nr_open is set to a very high value and
+	 * a process tries to use a file descriptor near that limit. For example,
+	 * if sysctl_nr_open is set to 1073741816 (0x3ffffff8) - which is what
+	 * systemd typically sets it to - then trying to use a file descriptor
+	 * close to that value will require allocating a file descriptor table
+	 * that exceeds 8GB in size.
+	 */
+	if (unlikely(nr > INT_MAX / sizeof(struct file *)))
+		return ERR_PTR(-EMFILE);
 
 	fdt = kmalloc(sizeof(struct fdtable), GFP_KERNEL);
 	if (!fdt)
@@ -152,7 +186,7 @@ out_arr:
 out_fdt:
 	kfree(fdt);
 out:
-	return NULL;
+	return ERR_PTR(-ENOMEM);
 }
 
 /*
@@ -169,7 +203,7 @@ static int expand_fdtable(struct files_struct *files, int nr)
 	struct fdtable *new_fdt, *cur_fdt;
 
 	spin_unlock(&files->file_lock);
-	new_fdt = alloc_fdtable(nr);
+	new_fdt = alloc_fdtable(nr + 1);
 
 	/* make sure all __fd_install() have seen resize_in_progress
 	 * or have finished their rcu_read_lock_sched() section.
@@ -178,29 +212,10 @@ static int expand_fdtable(struct files_struct *files, int nr)
 		synchronize_sched();
 
 	spin_lock(&files->file_lock);
-	if (!new_fdt)
-		return -ENOMEM;
-	/*
-	 * extremely unlikely race - sysctl_nr_open decreased between the check in
-	 * caller and alloc_fdtable().  Cheaper to catch it here...
-	 */
-	if (unlikely(new_fdt->max_fds <= nr)) {
-		__free_fdtable(new_fdt);
-		return -EMFILE;
-	}
+	if (IS_ERR(new_fdt))
+		return PTR_ERR(new_fdt);
 	cur_fdt = files_fdtable(files);
-
-	/*
-	 * MTK patch:
-	 *
-	 * Skipping BUG_ON if (cur_fdt->max_fds < 128) because
-	 * (nr < cur_fdt->max_fds) may be true if we expand fdtable
-	 * in advance for some apps for better launching performance.
-	 *
-	 * See expand_files() for details.
-	 */
-	WARN_ON((nr < cur_fdt->max_fds && cur_fdt->max_fds >= 128));
-
+	BUG_ON(nr < cur_fdt->max_fds);
 	copy_fdtable(new_fdt, cur_fdt);
 	rcu_assign_pointer(files->fdt, new_fdt);
 	if (cur_fdt != &files->fdtab)
@@ -229,23 +244,7 @@ repeat:
 	fdt = files_fdtable(files);
 
 	/* Do we need to expand? */
-
-	/*
-	 * MTK patch:
-	 *
-	 *   Expand fdtable in advance for some apps for better launching performance.
-	 *
-	 *   nr < 16       : Usually native app with less fd requirement, say < 16.
-	 *                   Apply origianl expanding logic (return "expanded").
-	 *   128 > nr > 16 : Usually app forked by zygote. We expand fdtable to at
-	 *                   least 128 entries for better app launching performance
-	 *                   (not return "expanded").
-	 *   nr >= 128     : Apply original expanding logic.
-	 */
-	if (nr < 16)
-		return expanded;
-
-	if (nr < fdt->max_fds && fdt->max_fds >= 128)
+	if (nr < fdt->max_fds)
 		return expanded;
 
 	/* Can we expand? */
@@ -351,16 +350,9 @@ struct files_struct *dup_fd(struct files_struct *oldf, int *errorp)
 		if (new_fdt != &newf->fdtab)
 			__free_fdtable(new_fdt);
 
-		new_fdt = alloc_fdtable(open_files - 1);
-		if (!new_fdt) {
-			*errorp = -ENOMEM;
-			goto out_release;
-		}
-
-		/* beyond sysctl_nr_open; nothing to do */
-		if (unlikely(new_fdt->max_fds < open_files)) {
-			__free_fdtable(new_fdt);
-			*errorp = -EMFILE;
+		new_fdt = alloc_fdtable(open_files);
+		if (IS_ERR(new_fdt)) {
+			*errorp = PTR_ERR(new_fdt);
 			goto out_release;
 		}
 
@@ -506,151 +498,17 @@ struct files_struct init_files = {
 
 static unsigned long find_next_fd(struct fdtable *fdt, unsigned long start)
 {
-	unsigned long maxfd = fdt->max_fds;
+	unsigned long maxfd = fdt->max_fds; /* always multiple of BITS_PER_LONG */
 	unsigned long maxbit = maxfd / BITS_PER_LONG;
 	unsigned long bitbit = start / BITS_PER_LONG;
 
 	bitbit = find_next_zero_bit(fdt->full_fds_bits, maxbit, bitbit) * BITS_PER_LONG;
-	if (bitbit > maxfd)
+	if (bitbit >= maxfd)
 		return maxfd;
 	if (bitbit > start)
 		start = bitbit;
 	return find_next_zero_bit(fdt->open_fds, maxfd, start);
 }
-
-#ifdef CONFIG_MTK_FD_LEAK_DETECT
-#define FD_CHECK_NAME_SIZE 256
-/* Declare a radix tree to construct fd set tree */
-static RADIX_TREE(over_fd_tree, GFP_KERNEL);
-static LIST_HEAD(fd_listhead);
-static DEFINE_MUTEX(over_fd_mutex);
-static int dump_current_open_files;
-
-struct over_fd_entry {
-	int num_of_fd;
-	char name[FD_CHECK_NAME_SIZE];
-	int hash;
-	struct list_head fd_link;
-};
-
-/*
-* Get File Name from FD value
-*/
-static long get_file_name_from_fd(struct files_struct *files, int fd, int procid, struct over_fd_entry *res_name)
-{
-	char *tmp;
-	char *pathname;
-	struct file *file;
-	struct path path;
-
-	spin_lock(&files->file_lock);
-	file = fget(fd);
-	if (!file) {
-		spin_unlock(&files->file_lock);
-		return 0;
-	}
-	path_get(&file->f_path);
-	path = file->f_path;
-	fput(file);
-	spin_unlock(&files->file_lock);
-	tmp = (char *)__get_free_page(GFP_TEMPORARY);
-	if (!tmp)
-		return 0;
-
-	pathname = d_path(&path, tmp, PAGE_SIZE);
-	path_put(&path);
-
-	if (IS_ERR(pathname)) {
-		free_page((unsigned long)tmp);
-		return PTR_ERR(pathname);
-	}  /* do something here with pathname */
-
-	if (pathname != NULL)
-		strncpy(res_name->name, pathname, FD_CHECK_NAME_SIZE - 1);
-
-	free_page((unsigned long)tmp);
-	return 1;
-}
-
-static unsigned int get_hash(char *name)
-{
-	return full_name_hash(name, strlen(name));
-}
-
-static struct over_fd_entry *fd_lookup(unsigned int hash)
-{
-	return radix_tree_lookup(&over_fd_tree, hash);
-}
-
-static void fd_insert(struct over_fd_entry *entry)
-{
-	unsigned int hash = get_hash(entry->name);
-	struct over_fd_entry *find_entry = fd_lookup(hash);
-
-	if (!find_entry) {	/* Can't find the element, just add the element */
-		entry->num_of_fd = 1;
-		entry->hash = hash;
-		list_add_tail(&entry->fd_link, &fd_listhead);
-		radix_tree_insert(&over_fd_tree, hash, (void *)entry);
-	} else {	/* Cover the original element */
-		find_entry->num_of_fd = find_entry->num_of_fd+1;
-		kfree(entry);
-	}
-}
-
-static void fd_delete(unsigned int hash)
-{
-	radix_tree_delete(&over_fd_tree, hash);
-}
-
-void fd_show_open_files(pid_t pid, struct files_struct *files, struct fdtable *fdt)
-{
-	int i = 0;
-	struct over_fd_entry *lentry;
-	long result;
-	int num_of_entry;
-	int sum_fds_of_pid = 0;
-
-	mutex_lock(&over_fd_mutex);
-	/* pr_err("(PID:%d)Max FD Number:%d", current->pid, fdt->max_fds);*/
-	for (i = 0; i < fdt->max_fds; i++) {
-		struct over_fd_entry *entry = kzalloc(sizeof(struct over_fd_entry), GFP_KERNEL);
-
-		if (entry) {
-			memset(entry->name, 0, sizeof(entry->name));
-			result = get_file_name_from_fd(files, i, pid, entry);
-			if (result == 1) {
-				fd_insert(entry);
-				sum_fds_of_pid++;
-			}
-		}
-	}
-
-	for (; ;) {
-		if (list_empty(&fd_listhead))
-			break;
-
-		lentry = list_entry((&fd_listhead)->next, struct over_fd_entry, fd_link);
-		if (lentry != NULL) {
-			num_of_entry = lentry->num_of_fd;
-			if (lentry->name != NULL)
-				pr_err("[FDLEAK]OverAllocFDError(PID:%d fileName:%s Num:%d)\n",
-						pid, lentry->name, num_of_entry);
-			else
-				pr_err("[FDLEAK]OverAllocFDError(PID:%d fileName:%s Num:%d)\n",
-						pid, "NULL", num_of_entry);
-			list_del((&fd_listhead)->next);
-			fd_delete(lentry->hash);
-			kfree(lentry);
-		}
-	}
-
-	if (sum_fds_of_pid)
-		pr_err("[FDLEAK]OverAllocFDError(PID:%d totalFDs:%d)\n", pid, sum_fds_of_pid);
-
-	mutex_unlock(&over_fd_mutex);
-}
-#endif
 
 /*
  * allocate a file descriptor, mark it busy.
@@ -710,17 +568,6 @@ repeat:
 
 out:
 	spin_unlock(&files->file_lock);
-#ifdef CONFIG_MTK_FD_LEAK_DETECT
-	if (error == -EMFILE && !dump_current_open_files) {
-		/*add Backbone into FD white list for skype*/
-		/*if (strcmp(current->comm, "Backbone") != 0) {*/
-		dump_current_open_files = 0x1;
-		pr_err("[FDLEAK][%d:%s]fd over RLIMIT_NOFILE:%ld\n",
-			current->pid, current->comm, rlimit(RLIMIT_NOFILE));
-		fd_show_open_files(current->pid, files, fdt);
-		/*}*/
-	}
-#endif
 	return error;
 }
 
@@ -1060,6 +907,7 @@ __releases(&files->file_lock)
 	 * tables and this condition does not arise without those.
 	 */
 	fdt = files_fdtable(files);
+	fd = array_index_nospec(fd, fdt->max_fds);
 	tofree = fdt->fd[fd];
 	if (!tofree && fd_is_open(fd, fdt))
 		goto Ebusy;
