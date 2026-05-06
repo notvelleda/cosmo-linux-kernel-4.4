@@ -160,24 +160,6 @@ struct cust_mt65xx_led {
 };
 
 /**
- * led device node structure with mtk extentions
- * cdev: common led device structure
- * cust: customization data from device tree
- * work: workqueue for specialfied led device
- * level: brightness level
- * delay_on: on time if led is blinking
- * delay_off: off time if led is blinking
- */
-struct mt65xx_led_data {
-	struct led_classdev cdev;
-	struct cust_mt65xx_led cust;
-	struct work_struct work;
-	int level;
-	int delay_on;
-	int delay_off;
-};
-
-/**
  * LED Variable Settings
  * nled_mode:  0, off; 1, on; 2, blink
  * blink_on_time: on time if led is blinking

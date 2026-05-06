@@ -29,6 +29,8 @@
 #endif
 #include <ddp_aal.h>
 
+#include "backlight.h"
+
 #ifdef CONFIG_BACKLIGHT_SUPPORT_LP8557
 #include <linux/of_gpio.h>
 #include <linux/gpio.h>
@@ -676,7 +678,13 @@ static int mt65xx_leds_probe(struct platform_device *pdev)
 
 		INIT_WORK(&g_leds_data[i]->work, mt_mt65xx_led_work);
 
-		ret = led_classdev_register(&pdev->dev, &g_leds_data[i]->cdev);
+		if (i == MT65XX_LED_TYPE_LCD) {
+			ret = mtk_backlight_register(&pdev->dev, g_leds_data[i]);
+		} else {
+			g_leds_data[i]->bdev = NULL;
+			ret = led_classdev_register(&pdev->dev, &g_leds_data[i]->cdev);
+		}
+
 		#if 0
 		if (strcmp(g_leds_data[i]->cdev.name, "lcd-backlight") == 0) {
 			rc = device_create_file(g_leds_data[i]->cdev.dev,
@@ -731,7 +739,12 @@ static int mt65xx_leds_probe(struct platform_device *pdev)
 		for (i = i - 1; i >= 0; i--) {
 			if (!g_leds_data[i])
 				continue;
-			led_classdev_unregister(&g_leds_data[i]->cdev);
+
+			if (i == MT65XX_LED_TYPE_LCD)
+				mtk_backlight_unregister(&pdev->dev, g_leds_data[i]);
+			else
+				led_classdev_unregister(&g_leds_data[i]->cdev);
+
 			cancel_work_sync(&g_leds_data[i]->work);
 			kfree(g_leds_data[i]);
 			g_leds_data[i] = NULL;
@@ -748,7 +761,12 @@ static int mt65xx_leds_remove(struct platform_device *pdev)
 	for (i = 0; i < MT65XX_LED_TYPE_TOTAL; i++) {
 		if (!g_leds_data[i])
 			continue;
-		led_classdev_unregister(&g_leds_data[i]->cdev);
+
+		if (i == MT65XX_LED_TYPE_LCD)
+			mtk_backlight_unregister(&pdev->dev, g_leds_data[i]);
+		else
+			led_classdev_unregister(&g_leds_data[i]->cdev);
+
 		cancel_work_sync(&g_leds_data[i]->work);
 		kfree(g_leds_data[i]);
 		g_leds_data[i] = NULL;

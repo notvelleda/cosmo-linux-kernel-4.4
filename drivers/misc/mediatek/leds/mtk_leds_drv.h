@@ -11,8 +11,31 @@
  * GNU General Public License for more details.
  */
 
+#ifndef MTK_LEDS_DRV_H
+#define MTK_LEDS_DRV_H
+
 #include <linux/leds.h>
 #include <mtk_leds_hal.h>
+
+/**
+ * led device node structure with mtk extentions
+ * cdev: common led device structure
+ * bdev: used by the backlight class driver (backlight.c)
+ * cust: customization data from device tree
+ * work: workqueue for specialfied led device
+ * level: brightness level
+ * delay_on: on time if led is blinking
+ * delay_off: off time if led is blinking
+ */
+struct mt65xx_led_data {
+	struct led_classdev cdev;
+	struct backlight_device *bdev;
+	struct cust_mt65xx_led cust;
+	struct work_struct work;
+	int level;
+	int delay_on;
+	int delay_off;
+};
 
 /****************************************************************************
  * LED DRV functions
@@ -29,3 +52,5 @@ extern int backlight_brightness_set(int level);
 #define backlight_brightness_set(level) do { } while (0)
 #endif
 extern int disp_bls_set_max_backlight(unsigned int level);
+
+#endif

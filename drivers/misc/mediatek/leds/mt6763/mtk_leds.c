@@ -33,7 +33,7 @@
 #include <mt-plat/upmu_common.h>
 
 #include "mtk_leds_sw.h"
-#include "mtk_leds_hal.h"
+#include "../mtk_leds_drv.h"
 #include "ddp_pwm.h"
 #include "mtkfb.h"
 
