@@ -732,6 +732,19 @@ static void enable_pmic_irqs(void)
 	pmic_enable_interrupt(INT_HOMEKEY_R, 1, "PMIC");
 }
 
+void suspend_set_pmic_irqs(void)
+{
+	pmic_enable_interrupt(INT_HOMEKEY, 0, "PMIC");
+	pmic_enable_interrupt(INT_HOMEKEY_R, 0, "PMIC");
+}
+
+void resume_set_pmic_irqs(void)
+{
+	pmic_enable_interrupt(INT_HOMEKEY, 1, "PMIC");
+	pmic_enable_interrupt(INT_HOMEKEY_R, 1, "PMIC");
+}
+
+
 void PMIC_EINT_SETTING(void)
 {
 	struct device_node *node = NULL;

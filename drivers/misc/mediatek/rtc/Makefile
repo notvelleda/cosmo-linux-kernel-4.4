@@ -66,7 +66,7 @@ endif
 
 MDP_COMMON_FOLDER:= ./
 
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/rtc/$(MDI_IP_FOLDER)
+ccflags-$(CONFIG_MTK_RTC) += -I$(srctree)/drivers/misc/mediatek/rtc/$(MDI_IP_FOLDER)
 
 #Top level common code
 obj-$(CONFIG_MTK_RTC) += mtk_rtc_common.o mtk_rtc_hal_common.o
@@ -74,6 +74,6 @@ obj-$(CONFIG_MTK_RTC) += mtk_rtc_common.o mtk_rtc_hal_common.o
 MTK_MDI_IP_SRC:= $(MDI_IP_FOLDER)/
 
 #IP dependent part
-obj-y += \
+obj-$(CONFIG_MTK_RTC) += \
     $(MTK_MDI_IP_SRC)
 

@@ -33,8 +33,6 @@
  *
  ****************************************************************************/
 
-#if defined(CONFIG_MTK_RTC)
-
 #ifdef pr_fmt
 #undef pr_fmt
 #endif
@@ -755,12 +753,21 @@ static int rtc_ops_ioctl(struct device *dev, unsigned int cmd, unsigned long arg
 	return -ENOIOCTLCMD;
 }
 
+static int rtc_ops_alarm_irq_enable(struct device *dev, unsigned int enabled)
+{
+	(void) dev;
+	DBGLOGINFO("%s: %s RTC interrupt\n", __func__,
+	           enabled ? "enabling" : "disabling");
+	pmic_enable_interrupt(RTC_INTERRUPT_NUM, enabled, "RTC");
+}
+
 static struct rtc_class_ops rtc_ops = {
 	.read_time = rtc_ops_read_time,
 	.set_time = rtc_ops_set_time,
 	.read_alarm = rtc_ops_read_alarm,
 	.set_alarm = rtc_ops_set_alarm,
 	.ioctl = rtc_ops_ioctl,
+	.alarm_irq_enable = rtc_ops_alarm_irq_enable,
 };
 
 static int rtc_pdrv_probe(struct platform_device *pdev)
@@ -783,7 +790,7 @@ static int rtc_pdrv_probe(struct platform_device *pdev)
 	}
 
 	pmic_register_interrupt_callback(RTC_INTERRUPT_NUM, rtc_irq_handler);
-	pmic_enable_interrupt(RTC_INTERRUPT_NUM, 1, "RTC");
+	pmic_enable_interrupt(RTC_INTERRUPT_NUM, 0, "RTC");
 
 	return 0;
 }
@@ -873,5 +880,3 @@ module_param(rtc_show_time, int, 0644);
 module_param(rtc_show_alarm, int, 0644);
 
 MODULE_LICENSE("GPL");
-
-#endif /*#if defined(CONFIG_MTK_RTC)*/

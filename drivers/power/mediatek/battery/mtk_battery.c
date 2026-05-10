@@ -3610,12 +3610,16 @@ static int battery_suspend(struct platform_device *dev, pm_message_t state)
 		fg_cust_data.disable_nafg,
 		gm.ntc_disable_nafg,
 		gm.cmd_disable_nafg);
-	if (gauge_get_hw_version() >= GAUGE_HW_V2000
-		&& gm.hw_status.iavg_intr_flag == 1) {
+
+	if (gauge_get_hw_version() >= GAUGE_HW_V2000) {
 		pmic_enable_interrupt(FG_IAVG_H_NO, 0, "GM30");
-		if (gm.hw_status.iavg_lt > 0)
-			pmic_enable_interrupt(FG_IAVG_L_NO, 0, "GM30");
+		pmic_enable_interrupt(FG_IAVG_L_NO, 0, "GM30");
+
+		pmic_enable_interrupt(FG_BAT1_INT_H_NO, 0, "GM30");
+		pmic_enable_interrupt(FG_BAT1_INT_L_NO, 0, "GM30");
+		pmic_enable_interrupt(FG_RG_INT_EN_NAG_C_DLTV, 0, "GM30");
 	}
+
 	return 0;
 }
 
@@ -3628,13 +3632,20 @@ static int battery_resume(struct platform_device *dev)
 		fg_cust_data.disable_nafg,
 		gm.ntc_disable_nafg,
 		gm.cmd_disable_nafg);
-	if (gauge_get_hw_version() >=
-		GAUGE_HW_V2000
-		&& gm.hw_status.iavg_intr_flag == 1) {
-		pmic_enable_interrupt(FG_IAVG_H_NO, 1, "GM30");
-		if (gm.hw_status.iavg_lt > 0)
-			pmic_enable_interrupt(FG_IAVG_L_NO, 1, "GM30");
+
+	if (gauge_get_hw_version() >= GAUGE_HW_V2000) {
+		if (gm.hw_status.iavg_intr_flag == 1) {
+			pmic_enable_interrupt(FG_IAVG_H_NO, 1, "GM30");
+
+			if (gm.hw_status.iavg_lt > 0)
+				pmic_enable_interrupt(FG_IAVG_L_NO, 1, "GM30");
+		}
+
+		pmic_enable_interrupt(FG_BAT1_INT_H_NO, 1, "GM30");
+		pmic_enable_interrupt(FG_BAT1_INT_L_NO, 1, "GM30");
+		pmic_enable_interrupt(FG_RG_INT_EN_NAG_C_DLTV, 1, "GM30");
 	}
+
 	/* reset nafg monitor time to avoid suspend for too long case */
 	get_monotonic_boottime(&gm.last_nafg_update_time);
 

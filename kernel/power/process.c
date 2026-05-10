@@ -5,14 +5,6 @@
  * Originally from swsusp.
  */
 
-//#define DEBUG_LOGGING
-#ifdef DEBUG_LOGGING
-#define DBGLOGCONT(...) pr_cont(__VA_ARGS__)
-#define DBGLOGINFO(...) pr_info(__VA_ARGS__)
-#else
-#define DBGLOGCONT(...) do { } while (false)
-#define DBGLOGINFO(...) do { } while (false)
-#endif
 
 #undef DEBUG
 
@@ -26,7 +18,6 @@
 #include <linux/workqueue.h>
 #include <linux/kmod.h>
 #include <trace/events/power.h>
-#include <linux/wakeup_reason.h>
 #include <linux/cpuset.h>
 
 /*
@@ -45,9 +36,6 @@ static int try_to_freeze_tasks(bool user_only)
 	unsigned int elapsed_msecs;
 	bool wakeup = false;
 	int sleep_usecs = USEC_PER_MSEC;
-#ifdef CONFIG_PM_SLEEP
-	char suspend_abort[MAX_SUSPEND_ABORT_LEN];
-#endif
 
 	do_gettimeofday(&start);
 
@@ -77,11 +65,6 @@ static int try_to_freeze_tasks(bool user_only)
 			break;
 
 		if (pm_wakeup_pending()) {
-#ifdef CONFIG_PM_SLEEP
-			pm_get_active_wakeup_sources(suspend_abort,
-				MAX_SUSPEND_ABORT_LEN);
-			log_suspend_abort_reason(suspend_abort);
-#endif
 			wakeup = true;
 			break;
 		}
@@ -101,17 +84,15 @@ static int try_to_freeze_tasks(bool user_only)
 	do_div(elapsed_msecs64, NSEC_PER_MSEC);
 	elapsed_msecs = elapsed_msecs64;
 
-	if (wakeup) {
-		DBGLOGCONT("\n");
-		DBGLOGINFO("Freezing of tasks aborted after %d.%03d seconds",
-		       elapsed_msecs / 1000, elapsed_msecs % 1000);
-	} else if (todo) {
-		DBGLOGCONT("\n");
-		DBGLOGINFO("Freezing of tasks failed after %d.%03d seconds"
-		       " (%d tasks refusing to freeze, wq_busy=%d):\n",
+	if (todo) {
+		pr_cont("\n");
+		pr_err("Freezing of tasks %s after %d.%03d seconds "
+		       "(%d tasks refusing to freeze, wq_busy=%d):\n",
+		       wakeup ? "aborted" : "failed",
 		       elapsed_msecs / 1000, elapsed_msecs % 1000,
 		       todo - wq_busy, wq_busy);
 
+		if (!wakeup) {
 			read_lock(&tasklist_lock);
 			for_each_process_thread(g, p) {
 				if (p != current && !freezer_should_skip(p)
@@ -119,8 +100,9 @@ static int try_to_freeze_tasks(bool user_only)
 					sched_show_task(p);
 			}
 			read_unlock(&tasklist_lock);
+		}
 	} else {
-		DBGLOGCONT("(elapsed %d.%03d seconds) ", elapsed_msecs / 1000,
+		pr_cont("(elapsed %d.%03d seconds) ", elapsed_msecs / 1000,
 			elapsed_msecs % 1000);
 	}
 
@@ -149,14 +131,14 @@ int freeze_processes(void)
 		atomic_inc(&system_freezing_cnt);
 
 	pm_wakeup_clear();
-	DBGLOGINFO("Freezing user space processes ... ");
+	pr_info("Freezing user space processes ... ");
 	pm_freezing = true;
 	error = try_to_freeze_tasks(true);
 	if (!error) {
 		__usermodehelper_set_disable_depth(UMH_DISABLED);
-		DBGLOGCONT("done.");
+		pr_cont("done.");
 	}
-	DBGLOGCONT("\n");
+	pr_cont("\n");
 	BUG_ON(in_atomic());
 
 	/*
@@ -184,14 +166,14 @@ int freeze_kernel_threads(void)
 {
 	int error;
 
-	DBGLOGINFO("Freezing remaining freezable tasks ... ");
+	pr_info("Freezing remaining freezable tasks ... ");
 
 	pm_nosig_freezing = true;
 	error = try_to_freeze_tasks(false);
 	if (!error)
-		DBGLOGCONT("done.");
+		pr_cont("done.");
 
-	DBGLOGCONT("\n");
+	pr_cont("\n");
 	BUG_ON(in_atomic());
 
 	if (error)
@@ -212,7 +194,7 @@ void thaw_processes(void)
 
 	oom_killer_enable();
 
-	DBGLOGINFO("Restarting tasks ... ");
+	pr_info("Restarting tasks ... ");
 
 	__usermodehelper_set_disable_depth(UMH_FREEZING);
 	thaw_workqueues();
@@ -233,7 +215,7 @@ void thaw_processes(void)
 	usermodehelper_enable();
 
 	schedule();
-	DBGLOGCONT("done.\n");
+	pr_cont("done.\n");
 	trace_suspend_resume(TPS("thaw_processes"), 0, false);
 }
 
@@ -242,7 +224,7 @@ void thaw_kernel_threads(void)
 	struct task_struct *g, *p;
 
 	pm_nosig_freezing = false;
-	DBGLOGINFO("Restarting kernel threads ... ");
+	pr_info("Restarting kernel threads ... ");
 
 	thaw_workqueues();
 
@@ -254,5 +236,5 @@ void thaw_kernel_threads(void)
 	read_unlock(&tasklist_lock);
 
 	schedule();
-	DBGLOGCONT("done.\n");
+	pr_cont("done.\n");
 }

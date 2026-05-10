@@ -217,10 +217,6 @@ struct aw_device {
 	
 #endif
 
-#if defined(CONFIG_FB)
-	struct notifier_block fb_notify;
-#endif
-
 #if defined(CONFIG_HAS_EARLYSUSPEND)
 	struct early_suspend early_suspend;
 #endif
@@ -238,14 +234,11 @@ struct aw_device {
 	struct mutex lock;
 	spinlock_t spin_lock;
 	bool prepared;
-	atomic_t wakeup_enabled;
 	bool irq_enabled;
 	bool clocks_enabled;
 	bool clocks_suspended;
     bool isPowerOn;
 	u8 *buf;
-	bool blankChanged;
-	int display_blank_flag;
 };
 
 /**************************debug******************************/
@@ -390,25 +383,6 @@ static void aw_spi_enable_clk(struct aw_device *aw_dev)
 
 
 
-static void aw_fb_notify(struct aw_device *aw_dev)
-{
-	FUNC_ENTRY();
-
-	/* Make sure 'wakeup_enabled' is updated before using it
-	 ** since this is interrupt context (other thread...) */
-	smp_rmb();
-
-	if (atomic_read(&aw_dev->wakeup_enabled)) {
-		#if defined(KERNEL49)
-			__pm_wakeup_event(&aw_dev->ttw_wl, msecs_to_jiffies(CF_TTW_HOLD_TIME));
-		#else
-			wake_lock_timeout(&aw_dev->ttw_wl, msecs_to_jiffies(CF_TTW_HOLD_TIME));
-		#endif
-	}
-	
-	//schedule_work(&aw_dev->work_queue);
-}
-
 static int aw_open(struct inode* inode, struct file* file)
 {
 	struct aw_device *aw_dev;
@@ -534,40 +508,6 @@ static const struct file_operations aw_fops =
 	};
 	
 	#endif
-#endif
-
-#if defined(CONFIG_FB)
-static int fb_notifier_callback(struct notifier_block* self, unsigned long event, void* data)
-{
-	struct fb_event *evdata = data;
-	int* blank;
-	struct aw_device *aw_dev = container_of(self, struct aw_device, fb_notify);
-	if (evdata && evdata->data && aw_dev) 
-	{
-		if (event == FB_EVENT_BLANK) 
-		{
-			blank = evdata->data;
-			if (*blank == FB_BLANK_UNBLANK) 
-			{
-				//TODO
-				aw_debug(INFO_LOG, "LCD on\n");
-				aw_dev->blankChanged = true;
-				aw_dev->display_blank_flag = 0;
-				aw_fb_notify(aw_dev);
-			}
-			else if (*blank == FB_BLANK_POWERDOWN) 
-			{
-				//TODO
-				aw_debug(INFO_LOG, "LCD off\n");
-				aw_dev->blankChanged = true;
-				aw_dev->display_blank_flag = 1;
-				aw_fb_notify(aw_dev);
-			}
-		}
-	}
-
-	return 0;
-}
 #endif
 
 #if defined(CONFIG_HAS_EARLYSUSPEND)
@@ -847,8 +787,6 @@ static int aw_probe(struct spi_device *spi)
 	#endif
 	
 
-	atomic_set(&aw_dev->wakeup_enabled, 1);
-
     aw_dev->pf_dev = platform_device_alloc(FP_DEV_NAME, -1);
     if (!aw_dev->pf_dev)
     {
@@ -877,12 +815,6 @@ static int aw_probe(struct spi_device *spi)
         }
 		#endif
     }
-    
-
-#if defined(CONFIG_FB)
-	aw_dev->fb_notify.notifier_call = fb_notifier_callback;
-	fb_register_client(&aw_dev->fb_notify);
-#endif
 
 #if defined(CONFIG_HAS_EARLYSUSPEND)
 	aw_dev->early_suspend.level = EARLY_SUSPEND_LEVEL_BLANK_SCREEN +
@@ -903,14 +835,6 @@ static int aw_remove(struct spi_device *spi)
 
 #if defined(CONFIG_HAS_EARLYSUSPENDCONFIG_HAS_EARLYSUSPEND)
 	unregister_early_suspend(&aw_dev->early_suspend);
-#endif
-
-#if defined(CONFIG_FB)
-	if (aw_dev->fb_notify.notifier_call) 
-	{
-		aw_dev->fb_notify.notifier_call = NULL;
-		fb_unregister_client(&aw_dev->fb_notify);
-	}
 #endif
 
 	//sysfs_remove_group(&aw_dev->pf_dev->dev.kobj, &attribute_group);

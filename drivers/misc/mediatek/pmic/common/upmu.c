@@ -536,14 +536,24 @@ static void pmic_mt_shutdown(struct platform_device *dev)
 	vmd1_pmic_setting_on();
 }
 
+void __attribute__ ((weak)) suspend_set_pmic_irqs(void)
+{
+}
+
 static int pmic_mt_suspend(struct platform_device *dev, pm_message_t state)
 {
 	PMICLOG("******** MT pmic driver suspend!! ********\n");
 
 	pmic_throttling_dlpt_suspend();
 	pmic_auxadc_suspend();
+	suspend_set_pmic_irqs();
 	return 0;
 }
+
+void __attribute__ ((weak)) resume_set_pmic_irqs(void)
+{
+}
+
 
 static int pmic_mt_resume(struct platform_device *dev)
 {
@@ -551,6 +561,7 @@ static int pmic_mt_resume(struct platform_device *dev)
 
 	pmic_throttling_dlpt_resume();
 	pmic_auxadc_resume();
+	resume_set_pmic_irqs();
 	return 0;
 }
 
