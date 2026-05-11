@@ -77,7 +77,7 @@
 #define SKIP_TIMER
 
 unsigned int hdmi_plug_in_flag = 0;
-unsigned int keyboardlight_flag = 0;
+extern unsigned int keyboardlight_flag;
 unsigned int is_rusb_onotg = 0;
 extern void Ext_Speaker_Amp_Change(bool enable);
 extern int AudDrv_GPIO_EXTAMP_Select(int bEnable, int mode);

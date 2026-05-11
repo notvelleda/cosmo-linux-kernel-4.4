@@ -1,1 +1,1 @@
-obj-y += aw9524_key.o
+obj-y += aw9524.o
