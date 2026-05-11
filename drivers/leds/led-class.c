@@ -9,6 +9,7 @@
  * published by the Free Software Foundation.
  */
 
+#include <dt-bindings/leds/common.h>
 #include <linux/ctype.h>
 #include <linux/device.h>
 #include <linux/err.h>
@@ -17,9 +18,11 @@
 #include <linux/leds.h>
 #include <linux/list.h>
 #include <linux/module.h>
+#include <linux/property.h>
 #include <linux/slab.h>
 #include <linux/spinlock.h>
 #include <linux/timer.h>
+#include <uapi/linux/uleds.h>
 #include "leds.h"
 
 static struct class *leds_class;
@@ -189,27 +192,66 @@ static int led_classdev_next_name(const char *init_name, char *name,
 }
 
 /**
- * led_classdev_register - register a new object of led_classdev class.
- * @parent: The device to register.
+ * led_classdev_register_ext - register a new object of led_classdev class
+ *			       with init data.
+ *
+ * @parent: parent of LED device
  * @led_cdev: the led_classdev structure for this device.
+ * @init_data: LED class device initialization data
  */
-int led_classdev_register(struct device *parent, struct led_classdev *led_cdev)
+int led_classdev_register_ext(struct device *parent,
+			      struct led_classdev *led_cdev,
+			      struct led_init_data *init_data)
 {
-	char name[64];
+	char composed_name[LED_MAX_NAME_SIZE];
+	char final_name[LED_MAX_NAME_SIZE];
+	const char *proposed_name = composed_name;
 	int ret;
 
-	ret = led_classdev_next_name(led_cdev->name, name, sizeof(name));
+	if (init_data) {
+		if (init_data->devname_mandatory && !init_data->devicename) {
+			dev_err(parent, "Mandatory device name is missing\n");
+			return -EINVAL;
+		}
+		ret = led_compose_name(parent, init_data, composed_name);
+		if (ret < 0)
+			return ret;
+
+		if (init_data->fwnode) {
+			fwnode_property_read_string(init_data->fwnode,
+				"linux,default-trigger",
+				&led_cdev->default_trigger);
+
+			fwnode_property_read_u32(init_data->fwnode,
+				"max-brightness",
+				&led_cdev->max_brightness);
+
+			if (fwnode_property_present(init_data->fwnode, "color"))
+				fwnode_property_read_u32(init_data->fwnode, "color",
+							 &led_cdev->color);
+		}
+	} else {
+		proposed_name = led_cdev->name;
+	}
+
+	ret = led_classdev_next_name(proposed_name, final_name, sizeof(final_name));
 	if (ret < 0)
 		return ret;
+	else if (ret)
+		dev_warn(parent, "Led %s renamed to %s due to name collision\n",
+			 proposed_name, final_name);
 
+	if (led_cdev->color >= LED_COLOR_ID_MAX)
+		dev_warn(parent, "LED %s color identifier out of range\n", final_name);
+
+	mutex_init(&led_cdev->led_access);
+	mutex_lock(&led_cdev->led_access);
 	led_cdev->dev = device_create_with_groups(leds_class, parent, 0,
-				led_cdev, led_cdev->groups, "%s", name);
-	if (IS_ERR(led_cdev->dev))
+						  led_cdev, led_cdev->groups, "%s", final_name);
+	if (IS_ERR(led_cdev->dev)) {
+		mutex_unlock(&led_cdev->led_access);
 		return PTR_ERR(led_cdev->dev);
-
-	if (ret)
-		dev_warn(parent, "Led %s renamed to %s due to name collision",
-				led_cdev->name, dev_name(led_cdev->dev));
+	}
 
 #ifdef CONFIG_LEDS_TRIGGERS
 	init_rwsem(&led_cdev->trigger_lock);
@@ -233,12 +275,14 @@ int led_classdev_register(struct device *parent, struct led_classdev *led_cdev)
 	led_trigger_set_default(led_cdev);
 #endif
 
+	mutex_unlock(&led_cdev->led_access);
+
 	dev_dbg(parent, "Registered led device: %s\n",
 			led_cdev->name);
 
 	return 0;
 }
-EXPORT_SYMBOL_GPL(led_classdev_register);
+EXPORT_SYMBOL_GPL(led_classdev_register_ext);
 
 /**
  * led_classdev_unregister - unregisters a object of led_properties class.
