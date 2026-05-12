@@ -68,6 +68,11 @@ obj-$(CONFIG_LEDS_KTD2692)		+= leds-ktd2692.o
 obj-$(CONFIG_LEDS_POWERNV)		+= leds-powernv.o
 obj-$(CONFIG_LEDS_SEAD3)		+= leds-sead3.o
 obj-$(CONFIG_LEDS_AW9524)		+= leds-aw9524.o
+obj-$(CONFIG_LEDS_MT6771)		+= leds-mt6771.o
+
+# needed in order to include PWM headers
+ccflags-$(CONFIG_LEDS_MT6771) += \
+	-I$(srctree)/drivers/misc/mediatek/include/mt-plat/$(subst ",,$(CONFIG_MTK_PLATFORM))/include
 
 # LED SPI Drivers
 obj-$(CONFIG_LEDS_DAC124S085)		+= leds-dac124s085.o

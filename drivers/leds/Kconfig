@@ -623,6 +623,28 @@ config LEDS_AW9524
 	  This option enables support for the AW9524 as configured in the
 	  Cosmo Communicator. Say Y to enable support for it.
 
+config LEDS_MT6771
+	tristate "LED and backlight support for MT6771 based devices"
+	depends on OF
+	depends on MTK_PWM
+	depends on LEDS_CLASS
+	depends on BACKLIGHT_CLASS_DEVICE
+	help
+	  This option enables support for built in LEDs and the LCD backlight on
+	  MediaTek MT6771 based devices. Say Y to enable support.
+
+if LEDS_MT6771
+
+config LEDS_MT6771_DT_BUG
+	bool "Workaround for MT6771 keyboard backlight not working"
+	help
+	  This option enables a workaround for the device tree source not
+	  containing the correct values to initialize the keyboard backlight.
+	  Say Y if you're building a kernel for the Cosmo Communicator, N
+	  otherwise.
+
+endif # LEDS_MT6771
+
 comment "LED Triggers"
 source "drivers/leds/trigger/Kconfig"
 
