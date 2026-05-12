@@ -35,7 +35,6 @@ obj-$(CONFIG_MTK_ICE_DEBUG) += ice_debug/
 obj-$(CONFIG_MTK_NFC_SUPPORT) += nfc/
 obj-$(CONFIG_NFC_CHIP_SUPPORT) += nfc/
 obj-$(CONFIG_MTK_AW9523) += aw9523/
-obj-$(CONFIG_MTK_AW9524) += aw9524/
 
 obj-$(CONFIG_MMPROFILE) += mmp/
 obj-$(CONFIG_MTK_AUXADC)	+= auxadc/

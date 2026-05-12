@@ -615,6 +615,14 @@ config LEDS_VERSATILE
 	  This option enabled support for the LEDs on the ARM Versatile
 	  and RealView boards. Say Y to enabled these.
 
+config LEDS_AW9524
+	tristate "LED support for the AWINIC AW9524"
+	depends on LEDS_CLASS
+	depends on LEDS_CLASS_MULTICOLOR
+	help
+	  This option enables support for the AW9524 as configured in the
+	  Cosmo Communicator. Say Y to enable support for it.
+
 comment "LED Triggers"
 source "drivers/leds/trigger/Kconfig"
 
