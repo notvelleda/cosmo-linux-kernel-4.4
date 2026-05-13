@@ -23,7 +23,6 @@
 #include <linux/uaccess.h>
 #include <linux/atomic.h>
 #include <linux/delay.h>
-#include <mtk_leds_drv.h>
 #include <cmdq_record.h>
 #include <ddp_reg.h>
 #include <ddp_drv.h>
@@ -115,7 +114,7 @@ static atomic_t g_aal_force_enable_irq = ATOMIC_INIT(0);
 #ifdef LOAD_AAL_SUPPORT_FROM_DTS
 static atomic_t g_aal_support = ATOMIC_INIT(-1);
 #endif
-static atomic_t g_led_mode = ATOMIC_INIT(MT65XX_LED_MODE_NONE);
+static atomic_t g_led_mode = ATOMIC_INIT(0 /* MT65XX_LED_MODE_NONE */);
 static bool g_aal_hw_offset;
 static bool g_aal_dre_offset_separate;
 
@@ -339,7 +338,7 @@ static inline bool disp_aal_reg_get(enum DISP_MODULE_ENUM module,
 	return true;
 }
 
-static void backlight_brightness_set_with_lock(int bl_1024)
+/*static void backlight_brightness_set_with_lock(int bl_1024)
 {
 	_primary_path_switch_dst_lock();
 	primary_display_manual_lock();
@@ -348,7 +347,7 @@ static void backlight_brightness_set_with_lock(int bl_1024)
 
 	primary_display_manual_unlock();
 	_primary_path_switch_dst_unlock();
-}
+}*/
 
 static int disp_aal_exit_idle(const char *caller, int need_kick)
 {
@@ -378,7 +377,7 @@ static int disp_aal_init(enum DISP_MODULE_ENUM module, int width, int height, vo
 	DISP_REG_MASK(cmdq, DISP_AAL_CFG + aal_get_offset(module), 0x1 << 4, 0x1 << 4);
 #endif
 	/* get lcd-backlight mode from dts */
-	if (atomic_read(&g_led_mode) == MT65XX_LED_MODE_NONE)
+	if (atomic_read(&g_led_mode) == 0 /* MT65XX_LED_MODE_NONE */)
 		disp_aal_get_cust_led();
 
 	atomic_set(&g_aal_hist_available, 0);
@@ -1237,20 +1236,20 @@ void disp_aal_notify_backlight_changed(int bl_1024)
 
 	service_flags = 0;
 	if (bl_1024 == 0) {
-		if (atomic_read(&g_led_mode) == MT65XX_LED_MODE_CUST_LCM)
+		/*if (atomic_read(&g_led_mode) == MT65XX_LED_MODE_CUST_LCM)
 			backlight_brightness_set_with_lock(0);
 		else
-			backlight_brightness_set(0);
+			backlight_brightness_set(0);*/
 
 		/* set backlight = 0 may be not from AAL, */
 		/* we have to let AALService can turn on backlight on phone resumption */
 		service_flags = AAL_SERVICE_FORCE_UPDATE;
 	} else if (atomic_read(&g_aal_is_init_regs_valid) == 0) {
 		/* AAL Service is not running */
-		if (atomic_read(&g_led_mode) == MT65XX_LED_MODE_CUST_LCM)
+		/*if (atomic_read(&g_led_mode) == MT65XX_LED_MODE_CUST_LCM)
 			backlight_brightness_set_with_lock(bl_1024);
 		else
-			backlight_brightness_set(bl_1024);
+			backlight_brightness_set(bl_1024);*/
 	}
 	AAL_DBG("led_mode=%d", atomic_read(&g_led_mode));
 
@@ -1447,7 +1446,7 @@ int disp_aal_set_param(struct DISP_AAL_PARAM __user *param, enum DISP_MODULE_ENU
 		g_aal_param.cabc_fltgain_force, g_aal_param.DREGainFltStatus[0],
 		g_aal_param.DREGainFltStatus[8], g_aal_param.refreshLatency, ret);
 
-	backlight_brightness_set(backlight_value);
+	/*backlight_brightness_set(backlight_value);*/
 
 	disp_aal_trigger_refresh(g_aal_param.refreshLatency);
 

@@ -34,8 +34,6 @@
 #include <ddp_pwm_mux.h>
 /* #include <mach/mt_gpio.h> */
 #include <disp_dts_gpio.h> /* DTS GPIO */
-#include <mtk_leds_drv.h>
-#include <mtk_leds_sw.h>
 #include <ddp_reg.h>
 #include <ddp_path.h>
 #include <primary_display.h>
@@ -95,7 +93,7 @@ static atomic_t g_pwm_is_change_state[PWM_TOTAL_MODULE_NUM] = { ATOMIC_INIT(0) }
 #endif				/* not define CONFIG_FPGA_EARLY_PORTING */
 #endif
 
-static int g_pwm_led_mode = MT65XX_LED_MODE_NONE;
+static int g_pwm_led_mode = 0 /* MT65XX_LED_MODE_NONE */;
 
 struct PWM_LOG {
 	int value;
@@ -145,7 +143,7 @@ int disp_pwm_get_cust_led(unsigned int *clocksource, unsigned int *clockdiv)
 			PWM_ERR("led dts can not get pwm config data.\n");
 		}
 
-		if (g_pwm_led_mode == MT65XX_LED_MODE_NONE) {
+		if (g_pwm_led_mode == 0 /* MT65XX_LED_MODE_NONE */) {
 			ret = of_property_read_u32(led_node, "led_mode", &led_mode);
 			if (!ret) {
 				/* Save current LED mode */
@@ -169,7 +167,7 @@ static void disp_pwm_backlight_status(enum disp_pwm_id_t id, bool is_power_on)
 	const unsigned long reg_base = pwm_get_reg_base(id);
 	unsigned int high_width;
 
-	if (g_pwm_led_mode == MT65XX_LED_MODE_CUST_BLS_PWM) {
+	if (g_pwm_led_mode == 5 /* MT65XX_LED_MODE_CUST_BLS_PWM */) {
 		/* Read PWM value from register */
 		PWM_NOTICE("pwm10 disp_pwm_backlight_status(%d) en_off:%d, con_1_off:%d", id, DISP_REG_GET(reg_base + DISP_PWM_EN_OFF), DISP_REG_GET(reg_base + DISP_PWM_CON_1_OFF));
 		if (DISP_REG_GET(reg_base + DISP_PWM_EN_OFF) > 0)
@@ -210,7 +208,7 @@ static void disp_pwm_query_backlight(char *debug_output)
 	unsigned int high_width;
 
 	if (atomic_read(&g_pwm_is_power_on[index]) == 1) {
-		if (g_pwm_led_mode == MT65XX_LED_MODE_CUST_BLS_PWM) {
+		if (g_pwm_led_mode == 5 /* MT65XX_LED_MODE_CUST_BLS_PWM */) {
 			/* Read PWM value from register */
 			if (DISP_REG_GET(reg_base + DISP_PWM_EN_OFF) > 0)
 				high_width = DISP_REG_GET(reg_base + DISP_PWM_CON_1_OFF) >> 16;
@@ -303,7 +301,7 @@ static int disp_pwm_config(enum DISP_MODULE_ENUM module, struct disp_ddp_path_co
 static void disp_pwm_trigger_refresh(enum disp_pwm_id_t id, int quick)
 {
 	if (g_ddp_notify != NULL) {
-#if defined(DISP_PATH_DELAYED_TRIGGER_33ms_SUPPORT)
+#if defined(CONFIG_MTK_AAL_SUPPORT) && defined(DISP_PATH_DELAYED_TRIGGER_33ms_SUPPORT)
 		if (disp_aal_is_support() == true) {
 			if (quick) { /* Turn off backlight immediately */
 				g_ddp_notify(DISP_MODULE_PWM0, DISP_PATH_EVENT_TRIGGER);
@@ -577,7 +575,7 @@ int disp_pwm_set_backlight_cmdq(enum disp_pwm_id_t id, int level_1024, void *cmd
 		DISP_REG_MASK(cmdq, reg_base + DISP_PWM_COMMIT_OFF, 0, ~0);
 	}
 
-	if (g_pwm_led_mode == MT65XX_LED_MODE_CUST_BLS_PWM &&
+	if (g_pwm_led_mode == 5 /* MT65XX_LED_MODE_CUST_BLS_PWM */ &&
 		atomic_read(&g_pwm_is_power_on[index]) == 0 && level_1024 > 0) {
 		/* print backlight once after device resumed */
 		disp_pwm_backlight_status(id, true);
@@ -632,7 +630,7 @@ static int ddp_pwm_power_on(enum DISP_MODULE_ENUM module, void *handle)
 	if (!ret)
 		disp_pwm_clksource_enable(pwm_src);
 
-	if (g_pwm_led_mode != MT65XX_LED_MODE_CUST_BLS_PWM)
+	if (g_pwm_led_mode != 5 /* MT65XX_LED_MODE_CUST_BLS_PWM */)
 		disp_pwm_backlight_status(id, true);
 
 	return 0;
