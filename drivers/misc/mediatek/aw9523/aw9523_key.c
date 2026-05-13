@@ -47,7 +47,6 @@
  * 4. When no keys are pressed return to interrupt based monitoring
  */
 
-#define CONFIG_AW9523_HALL
 #define AW9523_EARLY_SUSPEND
 /**
  * AW9523_EARLY_SUSPEND added by wangyongsheng 20171227
@@ -55,7 +54,7 @@
  * is closed, this can be triggered open/closed state (HALL) callback.
 */
 
-#ifdef CONFIG_AW9523_HALL
+#ifdef CONFIG_MTK_HALL
 
 #include <linux/notifier.h>
 #include <soc/mediatek/hall.h>
@@ -219,7 +218,7 @@ struct aw9523_key_data {
     int delay;
     KEY_STATE *keymap;
     int keymap_len;
-#ifdef CONFIG_AW9523_HALL
+#ifdef CONFIG_MTK_HALL
     struct notifier_block hall_notif;
     bool is_device_closed;
 #endif
@@ -240,7 +239,7 @@ struct pinctrl_state *int_pin;
 struct aw9523_key_data *aw9523_key;
 struct i2c_client *aw9523_i2c_client;
 
-#ifdef CONFIG_AW9523_HALL
+#ifdef CONFIG_MTK_HALL
 static int aw9523_hall_notifier_callback(struct notifier_block *self, unsigned long event, void *data);
 #endif
 
@@ -338,7 +337,7 @@ static void aw9523_key_eint_work(struct work_struct *work) {
 
     AW9523_LOG("Handling Interrupt (%d)\n",aw9523_key->irq_enabled);
 
-#ifdef CONFIG_AW9523_HALL
+#ifdef CONFIG_MTK_HALL
     if (aw9523_key->is_device_closed) {
         AW9523_LOG("Device is closed\n");
 
@@ -360,7 +359,7 @@ static void aw9523_key_eint_work(struct work_struct *work) {
             val = i2c_read_reg(P0_INPUT);    // read p0 port status
 
             setKeyValue = true;
-#ifdef CONFIG_AW9523_HALL
+#ifdef CONFIG_MTK_HALL
             setKeyValue = !aw9523_key->is_device_closed;
 #endif
             if (setKeyValue) {
@@ -484,9 +483,10 @@ static void aw9523_key_eint_work(struct work_struct *work) {
         memcpy(keyst_old, keyst_new, P1_NUM_MAX);
     }
 
-    forceAllKeyRelease = false;
-#ifdef CONFIG_AW9523_HALL
+#ifdef CONFIG_MTK_HALL
     forceAllKeyRelease = aw9523_key->is_device_closed;
+#else
+    forceAllKeyRelease = false;
 #endif
 
     if (((!(memcmp(&keyst_new[0], &keyst_def[KEYST_NEW][0], P1_NUM_MAX)))) || forceAllKeyRelease) {
@@ -768,7 +768,7 @@ exit_input_register_device_failed:
 
 
 
-#ifdef CONFIG_AW9523_HALL
+#ifdef CONFIG_MTK_HALL
 static int aw9523_hall_notifier_callback(struct notifier_block *self, unsigned long event, void *data) {
     struct aw9523_key_data *aw9523 = container_of(self, struct aw9523_key_data, hall_notif);
     // Must indicate device is closed before suspending, and resume before setting device opened.
@@ -832,8 +832,8 @@ static int aw9523_i2c_probe(struct i2c_client *client, const struct i2c_device_i
 
     aw9523_init_keycfg();
 
-#ifdef CONFIG_AW9523_HALL
-    aw9523_key->is_device_closed = true;
+#ifdef CONFIG_MTK_HALL
+    aw9523_key->is_device_closed = false;
     aw9523_key->hall_notif.notifier_call = aw9523_hall_notifier_callback;
     err = hall_register_client(&aw9523_key->hall_notif);
     if (err) {
@@ -954,7 +954,7 @@ static int aw9523_i2c_remove(struct i2c_client *client) {
 
     aw9523_i2c_client = NULL;
     i2c_set_clientdata(client, NULL);
-#ifdef CONFIG_AW9523_HALL
+#ifdef CONFIG_MTK_HALL
     hall_unregister_client(&aw9523_key->hall_notif);
 #endif
 
