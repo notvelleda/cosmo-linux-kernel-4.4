@@ -167,7 +167,7 @@ static int hall_pdrv_suspend(struct platform_device *pdev, pm_message_t state)
 
 static int hall_pdrv_resume(struct platform_device *pdev)
 {
-	enable_irq(irq_num);
+	queue_work(fcover_workqueue, &fcover_work);
 	return 0;
 }
 
