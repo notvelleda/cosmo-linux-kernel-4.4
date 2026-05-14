@@ -78,5 +78,6 @@ obj-$(CONFIG_INPUT_XEN_KBDDEV_FRONTEND)	+= xen-kbdfront.o
 obj-$(CONFIG_INPUT_YEALINK)		+= yealink.o
 obj-$(CONFIG_INPUT_IDEAPAD_SLIDEBAR)	+= ideapad_slidebar.o
 obj-$(CONFIG_INPUT_MTK_SOC_BUTTONS)	+= mtk-soc-buttons.o
+obj-$(CONFIG_INPUT_MTK_LID_SENSOR)	+= mtk-lid-sensor.o
 
 ccflags-$(CONFIG_INPUT_MTK_SOC_BUTTONS)	+= -I$(srctree)/drivers/misc/mediatek/include/mt-plat/$(CONFIG_MTK_PLATFORM)/include/

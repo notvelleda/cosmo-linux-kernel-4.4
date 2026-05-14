@@ -19,7 +19,6 @@ obj-$(CONFIG_INPUT_EVDEV)	+= evdev.o
 obj-$(CONFIG_INPUT_EVBUG)	+= evbug.o
 
 obj-$(CONFIG_INPUT_KEYBOARD)	+= keyboard/
-obj-$(CONFIG_MTK_HALL) += hall/
 obj-$(CONFIG_INPUT_MOUSE)	+= mouse/
 obj-$(CONFIG_INPUT_JOYSTICK)	+= joystick/
 obj-$(CONFIG_INPUT_TABLET)	+= tablet/

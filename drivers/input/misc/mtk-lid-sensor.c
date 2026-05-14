@@ -22,6 +22,8 @@
 #include <linux/workqueue.h>
 #include <soc/mediatek/hall.h>
 
+#define HALL_NAME "mtk-lid-sensor"
+
 static const struct of_device_id hall_of_match[] = {
 	{.compatible = "mediatek, hall-eint"},
 	{},
@@ -35,12 +37,12 @@ static int gpio_pin, irq_num;
 /* this is set in hall_work_handler(), there's no need to lock it since the IRQ
  * is immediately disabled when its handler is called
  */
-static int last_gpio_state = false;
+static int last_gpio_state;
 
-static struct work_struct fcover_work;
-static struct workqueue_struct *fcover_workqueue;
+static struct work_struct irq_work;
+static struct workqueue_struct *irq_workqueue;
 
-extern struct input_dev *kpd_accdet_dev;
+static struct input_dev *hall_input_dev;
 
 static BLOCKING_NOTIFIER_HEAD(hall_notifier_list);
 
@@ -90,10 +92,10 @@ static void hall_work_handler(struct work_struct *work)
 	if (last_gpio_state != gpio_state || is_first_call) {
 		hall_notifier_call_chain(gpio_state, NULL);
 
-		input_report_switch(kpd_accdet_dev, SW_LID, !gpio_state);
-		input_sync(kpd_accdet_dev);
+		input_report_switch(hall_input_dev, SW_LID, !gpio_state);
+		input_sync(hall_input_dev);
 
-		pr_info("mtk-hall: Lid state is %s\n",
+		pr_info(HALL_NAME ": Lid state is %s\n",
 		        gpio_state ? "open" : "closed");
 	}
 
@@ -107,7 +109,7 @@ static irqreturn_t hall_input_irq_handler(int irq, void *dev_id)
 {
 	/* use _nosync to avoid deadlock */
 	disable_irq_nosync(irq_num);
-	queue_work(fcover_workqueue, &fcover_work);
+	queue_work(irq_workqueue, &irq_work);
 
 	return IRQ_HANDLED;
 }
@@ -117,11 +119,8 @@ static int hall_pdrv_probe(struct platform_device *pdev)
 	int ret;
 	struct device_node *node = NULL;
 
-	__set_bit(EV_SW, kpd_accdet_dev->evbit);
-	__set_bit(SW_LID, kpd_accdet_dev->swbit);
-
-	fcover_workqueue = create_singlethread_workqueue("fcover");
-	INIT_WORK(&fcover_work, hall_work_handler);
+	irq_workqueue = create_singlethread_workqueue("hall_irq");
+	INIT_WORK(&irq_work, hall_work_handler);
 
 	node = of_find_matching_node(node, hall_of_match);
 	if (node == NULL) {
@@ -144,8 +143,27 @@ static int hall_pdrv_probe(struct platform_device *pdev)
 		return ret;
 	}
 
+	hall_input_dev = devm_input_allocate_device(&pdev->dev);
+
+	if (IS_ERR(hall_input_dev)) {
+		dev_err(&pdev->dev, "Failed to allocate an input device\n");
+		return PTR_ERR(hall_input_dev);
+	}
+
+	hall_input_dev->name = HALL_NAME;
+	hall_input_dev->id.bustype = BUS_HOST;
+	hall_input_dev->dev.parent = &pdev->dev;
+
+	input_set_capability(hall_input_dev, EV_SW, SW_LID);
+
+	ret = input_register_device(hall_input_dev);
+	if (ret) {
+		dev_err(&pdev->dev, "Failed to register input device\n");
+		return ret;
+	}
+
 	last_gpio_state = gpio_get_value(gpio_pin);
-	queue_work(fcover_workqueue, &fcover_work);
+	queue_work(irq_workqueue, &irq_work);
 
 	dev_info(&pdev->dev, "Successfully initialized driver\n");
 	return 0;
@@ -153,21 +171,21 @@ static int hall_pdrv_probe(struct platform_device *pdev)
 
 static int hall_pdrv_remove(struct platform_device *pdev)
 {
-	cancel_work_sync(&fcover_work);
+	cancel_work_sync(&irq_work);
 	disable_irq(irq_num);
 	return 0;
 }
 
 static int hall_pdrv_suspend(struct platform_device *pdev, pm_message_t state)
 {
-	cancel_work_sync(&fcover_work);
+	cancel_work_sync(&irq_work);
 	disable_irq(irq_num);
 	return 0;
 }
 
 static int hall_pdrv_resume(struct platform_device *pdev)
 {
-	queue_work(fcover_workqueue, &fcover_work);
+	queue_work(irq_workqueue, &irq_work);
 	return 0;
 }
 
@@ -177,7 +195,7 @@ static struct platform_driver hall_pdrv = {
 	.suspend = hall_pdrv_suspend,
 	.resume = hall_pdrv_resume,
 	.driver = {
-		.name = "mtk-hall",
+		.name = HALL_NAME,
 		.owner = THIS_MODULE,
 		.of_match_table = hall_of_match
 	}

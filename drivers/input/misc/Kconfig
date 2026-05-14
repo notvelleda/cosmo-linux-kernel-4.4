@@ -826,4 +826,10 @@ config KPD_PMIC_LPRST_TD
 	---help---
 	  0->8s, 1->11s, 2->14s, 3->5s
 
+config INPUT_MTK_LID_SENSOR
+	tristate "MediaTek hall effect lid sensor support"
+	help
+	  Say Y to enable support for the hall effect lid sensor on the Cosmo
+	  Communicator. If unsure, say N.
+
 endif
