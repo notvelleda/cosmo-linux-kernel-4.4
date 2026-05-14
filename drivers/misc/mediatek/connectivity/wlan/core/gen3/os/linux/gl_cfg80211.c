@@ -3002,6 +3002,7 @@ int	mtk_cfg80211_suspend(struct wiphy *wiphy, struct cfg80211_wowlan *wow)
 
 	set_bit(SUSPEND_FLAG_FOR_WAKEUP_REASON, &prGlueInfo->prAdapter->ulSuspendFlag);
 	set_bit(SUSPEND_FLAG_CLEAR_WHEN_RESUME, &prGlueInfo->prAdapter->ulSuspendFlag);
+	nicDisableInterrupt(prGlueInfo->prAdapter);
 end:
 	kalHaltUnlock();
 	return 0;
@@ -3032,6 +3033,7 @@ int mtk_cfg80211_resume(struct wiphy *wiphy)
 
 	prGlueInfo = (P_GLUE_INFO_T) wiphy_priv(wiphy);
 	prAdapter = prGlueInfo->prAdapter;
+	nicEnableInterrupt(prAdapter);
 	clear_bit(SUSPEND_FLAG_CLEAR_WHEN_RESUME, &prAdapter->ulSuspendFlag);
 	pprBssDesc = &prAdapter->rWifiVar.rScanInfo.rNloParam.aprPendingBssDescToInd[0];
 	for (; i < SCN_SSID_MATCH_MAX_NUM; i++) {
