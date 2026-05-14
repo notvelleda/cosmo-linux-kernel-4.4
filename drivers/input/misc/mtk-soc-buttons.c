@@ -36,10 +36,6 @@ extern bool aw9523MetaKeyPressed;
 
 static struct input_dev *kpd_input_dev = NULL;
 
-static unsigned int stm32_key_irqnr;
-static struct workqueue_struct *stm32_wake_queue = NULL;
-static struct work_struct stm32_wake_work;
-
 static unsigned int finger_key_irqnr;
 static struct workqueue_struct *finger_key_queue = NULL;
 static struct work_struct finger_key_work;
@@ -81,25 +77,6 @@ void kpd_rstkey_pmic_handler(unsigned long pressed)
 	input_sync(kpd_input_dev);
 }
 
-static void kpd_stm32_wake_work_handler(struct work_struct *work)
-{
-	input_report_key(kpd_input_dev, KEY_STM32_WAKE_MTK, 1);
-	input_sync(kpd_input_dev);	
-	mdelay(1);
-	input_report_key(kpd_input_dev, KEY_STM32_WAKE_MTK, 0);
-	input_sync(kpd_input_dev);
-
-	enable_irq(stm32_key_irqnr);
-}
-
-static irqreturn_t kpd_stm32_wake_eint_handler(int irq, void *dev_id)
-{
-	disable_irq_nosync(stm32_key_irqnr);
-	queue_work(stm32_wake_queue, &stm32_wake_work);
-
-	return IRQ_HANDLED;
-}
-
 static void kpd_finger_key_work_handler(struct work_struct * work)
 {
 	static bool key_state = true;
@@ -124,39 +101,6 @@ static irqreturn_t kpd_finger_key_eint_handler(int irq, void *dev_id)
 	queue_work(finger_key_queue, &finger_key_work);
 
 	return IRQ_HANDLED;
-}
-
-static void init_stm32_eint(struct device *dev)
-{
-	struct device_node *node;
-	int ret;
-
-	stm32_wake_queue = create_singlethread_workqueue("stm32_key");
-	INIT_WORK(&stm32_wake_work, kpd_stm32_wake_work_handler);
-
-	node = of_find_compatible_node(NULL, NULL, "mediatek, STM32_KEY-eint");
-
-	if (IS_ERR_OR_NULL(node)) {
-		dev_warn(dev, "Couldn't find the STM32 wake input IRQ"
-		         " number\n");
-		return;
-	}
-
-	stm32_key_irqnr = irq_of_parse_and_map(node, 0);
-	ret = request_irq(stm32_key_irqnr,
-	                  (irq_handler_t) kpd_stm32_wake_eint_handler,
-	                  IRQ_TYPE_EDGE_RISING, "stm32_wake_eint", NULL);
-
-	if (ret < 0) {
-		dev_err(dev, "Couldn't request an IRQ for the"
-		         " STM32 wake input\n");
-		return;
-	}
-
-	input_set_capability(kpd_input_dev, EV_KEY, KEY_STM32_WAKE_MTK);
-
-	enable_irq_wake(stm32_key_irqnr);
-	enable_irq(stm32_key_irqnr);
 }
 
 static void init_finger_eint(struct device *dev)
@@ -229,7 +173,6 @@ static int kpd_pdrv_probe(struct platform_device *pdev)
 		return ret;
 	}
 
-	init_stm32_eint(&pdev->dev);
 	init_finger_eint(&pdev->dev);
 
 	if (get_boot_mode() == NORMAL_BOOT) {

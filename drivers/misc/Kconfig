@@ -546,6 +546,13 @@ config MEMORY_STATE_TIME
 	help
 	  Memory time statistics exported to /sys/kernel/memory_state_time
 
+config COSMO_STM32
+	tristate "Cosmo Communicator STM32 driver"
+	depends on OF && MEDIATEK_SOLUTION
+	help
+	  This driver provides support for low level communication with the
+	  Cosmo Communicator's STM32 microcontroller
+
 source "drivers/misc/c2port/Kconfig"
 source "drivers/misc/eeprom/Kconfig"
 source "drivers/misc/cb710/Kconfig"
