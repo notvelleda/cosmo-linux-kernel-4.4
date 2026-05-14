@@ -182,8 +182,6 @@ static void fusb300_gpio_init(void)
 	}
 }
 
-extern void right_otg_in_report_key(void);
-extern void right_otg_out_report_key(void);
 extern void mt_usb_disconnect(void);
 extern void mt_usb_dev_off(void);
 extern void mt_usb_connect(void);
@@ -300,7 +298,7 @@ static const struct file_operations usb_control_proc_fops = {
 
 static DEFINE_MUTEX(typec_lock);
 
-extern int aeon_otg_enable; 
+int aeon_otg_enable = 0;
 void fusb300_eint_work(struct work_struct *data)
 {
 //	struct usbtypc *typec = container_of(to_delayed_work(data), struct usbtypc, fsm_work);
@@ -350,7 +348,6 @@ void fusb300_eint_work(struct work_struct *data)
 				}
 			}else{
 				fusb_printk(K_DEBUG, "%s=zhaolong==usb1 OTG mode===\n",__func__);
-				right_otg_in_report_key();
 				aeon_otg_enable = 3;
 				//force_to_otg(TRUE);
 				is_rusb_onotg = 1;
@@ -367,9 +364,6 @@ void fusb300_eint_work(struct work_struct *data)
 		fusb_printk(K_DEBUG, "%s==zhaolong=====USB1 plug out=======\n",__func__);
 		if(aeon_otg_enable != 2){
 			aeon_otg_enable = 0;
-		}
-		if(hdmi_plug_in_flag==0){
-			right_otg_out_report_key();
 		}
 		fusb300_gpio_init();
 		hdmi_plug_in_flag = 0;

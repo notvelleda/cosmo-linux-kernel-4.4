@@ -2148,9 +2148,7 @@ static int mt6370_set_otg_current_limit(struct charger_device *chg_dev, u32 uA)
 
 	return ret;
 }
-extern int aeon_otg_enable; 
-extern void left_otg_in_report_key(void);
-extern void left_otg_out_report_key(void);
+extern int aeon_otg_enable;
 
 static int mt6370_enable_otg(struct charger_device *chg_dev, bool en)
 {
@@ -2164,10 +2162,8 @@ static int mt6370_enable_otg(struct charger_device *chg_dev, bool en)
 	DBGLOGINFO(chg_data->dev, "%s: en = %d\n", __func__, en);
 	if(en){
 		aeon_otg_enable = 2;
-		left_otg_in_report_key();
 	}else if(aeon_otg_enable!=3){
 		aeon_otg_enable=0;
-		left_otg_out_report_key();
 	}
 	mt6370_enable_hidden_mode(chg_data, true);
 

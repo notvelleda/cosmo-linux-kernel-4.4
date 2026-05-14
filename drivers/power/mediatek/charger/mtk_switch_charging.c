@@ -315,7 +315,7 @@ static void swchg_select_cv(struct charger_manager *info)
 	charger_dev_set_constant_voltage(info->chg1_dev, constant_voltage);
 }
 
-extern bool aeon_charging_enable;
+bool aeon_charging_enable = false;
 static void swchg_turn_on_charging(struct charger_manager *info)
 {
 	struct switch_charging_alg_data *swchgalg = info->algorithm_data;

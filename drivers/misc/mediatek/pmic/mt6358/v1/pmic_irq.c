@@ -296,13 +296,16 @@ static unsigned int pmic_check_intNo(enum PMIC_IRQ_ENUM intNo,
 	return 0;
 }
 
+void kpd_pwrkey_pmic_handler(unsigned long pressed);
+void kpd_pmic_rstkey_handler(unsigned long pressed);
+
 /* PWRKEY Int Handler */
 void pwrkey_int_handler(void)
 {
 	IRQLOG("[pwrkey_int_handler] Press pwrkey %d\n",
 		pmic_get_register_value(PMIC_PWRKEY_DEB));
 
-#if !defined(CONFIG_FPGA_EARLY_PORTING) && defined(CONFIG_KPD_PWRKEY_USE_PMIC)
+#if !defined(CONFIG_FPGA_EARLY_PORTING)
 	kpd_pwrkey_pmic_handler(0x1);
 #endif
 }
@@ -312,7 +315,7 @@ void pwrkey_int_handler_r(void)
 	IRQLOG("[pwrkey_int_handler_r] Release pwrkey %d\n",
 		pmic_get_register_value(PMIC_PWRKEY_DEB));
 
-#if !defined(CONFIG_FPGA_EARLY_PORTING) && defined(CONFIG_KPD_PWRKEY_USE_PMIC)
+#if !defined(CONFIG_FPGA_EARLY_PORTING)
 	kpd_pwrkey_pmic_handler(0x0);
 #endif
 }
@@ -323,7 +326,7 @@ void homekey_int_handler(void)
 	IRQLOG("[homekey_int_handler] Press homekey %d\n",
 		pmic_get_register_value(PMIC_HOMEKEY_DEB));
 #if !defined(CONFIG_FPGA_EARLY_PORTING)
-	kpd_pmic_rstkey_handler(0x1);
+	kpd_rstkey_pmic_handler(0x1);
 #endif
 }
 
@@ -332,7 +335,7 @@ void homekey_int_handler_r(void)
 	IRQLOG("[homekey_int_handler_r] Release homekey %d\n",
 		pmic_get_register_value(PMIC_HOMEKEY_DEB));
 #if !defined(CONFIG_FPGA_EARLY_PORTING)
-	kpd_pmic_rstkey_handler(0x0);
+	kpd_rstkey_pmic_handler(0x0);
 #endif
 }
 
