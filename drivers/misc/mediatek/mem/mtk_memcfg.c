@@ -638,13 +638,6 @@ void mtk_memcfg_inform_vmpressure(bool to_trigger)
 
 	/* Trigger AEE warning */
 	pr_info("%s: vmpressure trigger kernel warning\n", __func__);
-	aee_kernel_warning_api("LMK", 0,
-			DB_OPT_DEFAULT | DB_OPT_DUMPSYS_ACTIVITY |
-			DB_OPT_LOW_MEMORY_KILLER | DB_OPT_PID_MEMORY_INFO |
-			DB_OPT_PROCESS_COREDUMP | DB_OPT_DUMPSYS_SURFACEFLINGER |
-			DB_OPT_DUMPSYS_GFXINFO | DB_OPT_DUMPSYS_PROCSTATS,
-			"Framework low memory\nCRDISPATCH_KEY:FLM_APAF",
-			"please contact AP/AF memory module owner\n");
 
 	vmpressure_warn_timeout = jiffies + 10 * HZ;
 
